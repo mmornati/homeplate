@@ -58,9 +58,9 @@ docker compose up -d
 
 Visit `http://homeassistant:10000/DASHBOARD_URL?viewport=1200x825&eink=8` to verify everything is working.
 
-Replae `homeassistant` with the nostname or IP of your Home Assistant instance, and `DASHBOARD_URL` with the URL of the dashboard you want to screenshot.
+Replace `homeassistant` with the hostname or IP of your Home Assistant instance, and `DASHBOARD_URL` with the URL of the dashboard you want to screenshot.
 
-The paramaters `viewport` and `eink` tell the addon to return a screenshot witht he Inkplate's native resolution and color depth.
+The parameters `viewport` and `eink` tell the addon to return a screenshot with the Inkplate's native resolution and color depth.
 
 See the [Puppet Home Assistant Addon](https://github.com/balloob/home-assistant-addons/tree/main/puppet) for more documentation and options.
 
@@ -102,7 +102,7 @@ If you want to override the sleep time for the next action, for example to just 
 }
 ```
 
-This comes in handy with a commute automation for example, so in the morning, the display get's refreshed more often.
+This comes in handy with a commute automation for example, so in the morning, the display gets refreshed more often.
 The following automation runs every 5 minutes between 7:30 and 10:30, updates the commute sensor and sends an activity trigger
 with a 5 minute refresh timer for the next boot:
 

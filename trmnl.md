@@ -16,11 +16,11 @@ Add the following to your `config.h`
 
 If you are running [BYOS](https://docs.usetrmnl.com/go/diy/byos) change `TRMNL_URL` to be your server URL.
 
-You can obtain `TRMNL_ID` and `TRMNL_TOKEN` by visting [usetrmnl.com/devices](https://usetrmnl.com/devices/).
+You can obtain `TRMNL_ID` and `TRMNL_TOKEN` by visiting [usetrmnl.com/devices](https://usetrmnl.com/devices/).
 `TRMNL_ID` is the _Device ID_.
 `TRMNL_TOKEN` is the _API Key_ in the _Device Credentials_ section.
 You should also set the _Device Model_ to `Inkplate 10 - 1200x820`.
-It is also a good diea to update the _MAC Address_ to your device's MAC Address as well.
+It is also a good idea to update the _MAC Address_ to your device's MAC Address as well.
 
 ## Home Assistant Config
 

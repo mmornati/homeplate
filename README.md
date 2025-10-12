@@ -1,6 +1,6 @@
 # HomePlate
 
-[Trmnl](https://usetrmnl.com/) and [Home Assistant](https://www.home-assistant.io/) E-Ink Dashboard on the [Inkplate 10](https://soldered.com/product/inkplate-10-9-7-e-paper-board-copy/)
+A [Trmnl](https://usetrmnl.com/) and [Home Assistant](https://www.home-assistant.io/) E-Ink Dashboard on the [Inkplate 10](https://soldered.com/product/inkplate-10-9-7-e-paper-board-copy/)
 
 ![Home Assistant](screenshots/hass.jpeg)
 
@@ -11,10 +11,10 @@
 * [Trmnl](https://usetrmnl.com) support
 * Display Home Assistant dashboards on a beautiful e-ink display
 * Display WiFi QR Codes for guests/friends to connect to home/guest wifi
-* Can display messages directly from Home Assistant over MQTT
+* Display messages directly from Home Assistant over MQTT
 * Makes full use of the ESP32's cores with [FreeRTOS](https://www.freertos.org/)
-* Reports sensor data to Home Assistant over MQTT (Temperature, Battery, WiFi, etc..)
-* Can change Activity displayed via MQTT Command (HASS dashboard, WiFi QR, Stats, text message, etc..)
+* Reports sensor data to Home Assistant over MQTT (Temperature, Battery, WiFi, etc.)
+* Change activity displayed via MQTT command (HASS dashboard, WiFi QR, Stats, text message, etc.)
 * Syncs RTC over NTP
 * Touch-pad buttons can start activities and wake from sleep
 * 1 month+ battery life!
@@ -22,18 +22,16 @@
 * OTA updates over WiFi
 * Partial screen updates in grayscale mode.
 * Power saving sleep mode.
-* Display any image from MQTT Command
+* Display any image from MQTT command
 * Supports PNG, BMP, and JPEG images
 
 ## Setup
 
 ### [Hardware](hardware.md)
 
-See [hardware.md](hardware.md)
-
 ### [Trmnl](trmnl.md)
 
-In order to use this with [Trmnl](usetrmnl.com), you must set `TRMNL_URL`, `TRMNL_ID`, and `TRMNL_TOKEN` in `config.h`.
+In order to use this with [Trmnl](https://usetrmnl.com), you must set `TRMNL_URL`, `TRMNL_ID`, and `TRMNL_TOKEN` in `config.h`.
 You can optionally set `#define DEFAULT_ACTIVITY Trmnl` to have Trmnl be the default image displayed if `IMAGE_URL` is also set.
 
 The [Alias Plugin](https://help.usetrmnl.com/en/articles/10701448-alias-plugin) can be used to display images from your local network, such as a Home Assistant Dashboard.
@@ -44,9 +42,11 @@ See [trmnl.md](trmnl.md) for more information.
 
 Create a Home Assistant Dashboard you want to display. I recommend using the [kiosk-mode](https://github.com/NemesisRE/kiosk-mode), [card-mod](https://github.com/thomasloven/lovelace-card-mod) and [layout-card](https://github.com/thomasloven/lovelace-layout-card) plugins to customize and tune the dashboard for your display.
 
-Setup the [Screenshot Home Assistant using Puppeteer](https://github.com/balloob/home-assistant-addons/tree/main/puppet) service to create screenshots of the desired dashboards for the HomePlate. This also works with the Terminal Alias plugin.
+Setup the [Screenshot Home Assistant using Puppeteer](https://github.com/balloob/home-assistant-addons/tree/main/puppet) service to create screenshots of the desired dashboards for the HomePlate. This also works with the Trmnl Alias plugin.
 
-### More information in [hass.md](hass.md) and [dashboard.md](dashboard.md)
+### More information
+
+See [hass.md](hass.md) and [dashboard.md](dashboard.md) for additional details.
 
 ### Inkplate
 
@@ -60,9 +60,9 @@ Copy `config_example.h` to `config.h` and add/change your settings.
 
 If you want your inkplate to sleep with different intervals, copy `config_example.cpp` to `config.cpp` and uncomment the 4 lines in `config.h` starting from `#define CONFIG_CPP`. Then configure your `sleepSchedule` in config.cpp.
 
-Note that schedule slots do not span multiple days, this means that the *day of week* setting is similar to configuring a cronjob. F.e. the settings below should be read as *between Xam to Ypm on every weekday*, and **not** as *from monday Xam to friday Ypm*.
+Note that schedule slots do not span multiple days, this means that the *day of week* setting is similar to configuring a cronjob. For example, the settings below should be read as *between Xam to Ypm on every weekday*, and **not** as *from monday Xam to friday Ypm*.
 
-To help with debugging the current sleep duration is also send to mqtt, so you can monitor it in home assistant.
+To help with debugging, the current sleep duration is also sent to MQTT, so you can monitor it in Home Assistant.
 
 ```cpp
 {
@@ -87,7 +87,7 @@ To help with debugging the current sleep duration is also send to mqtt, so you c
 
 ##### MQTT Expiration
 
-MQTT data sent by homeplate will by default expire after `2 * TIME_TO_SLEEP_MIN`. When using a custom sleep schedule, this could mean that MQTT data expires before homeplate wakes up and sent new values. You should adjust `MQTT_EXPIRE_AFTER_SEC` in `config.h` to a value greater than your longest sleep schedule to avoid this.
+MQTT data sent by homeplate will by default expire after `2 * TIME_TO_SLEEP_MIN`. When using a custom sleep schedule, this could mean that MQTT data expires before homeplate wakes up and sends new values. You should adjust `MQTT_EXPIRE_AFTER_SEC` in `config.h` to a value greater than your longest sleep schedule to avoid this.
 
 #### Build & run
 
@@ -95,7 +95,7 @@ MQTT data sent by homeplate will by default expire after `2 * TIME_TO_SLEEP_MIN`
 pio run
 ```
 
-If you have the Inkplate10v2 (without the additional MCP expander and touchpads), use the `inkplate10v2` environment:
+If you have the Inkplate 10v2 (without the additional MCP expander and touchpads), use the `inkplate10v2` environment:
 
 ```shell
 pio run -e inkplate10v2

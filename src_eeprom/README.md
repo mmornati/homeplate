@@ -1,8 +1,8 @@
-# Wavefrom_EEPROM Programming
+# Waveform_EEPROM Programming
 
-copied from: [Inkplate10_Wavefrom_EEPROM_Programming](https://github.com/SolderedElectronics/Inkplate-Arduino-library/tree/master/examples/Inkplate10/Diagnostics/Inkplate10_Wavefrom_EEPROM_Programming)
+Copied from: [Inkplate10_Wavefrom_EEPROM_Programming](https://github.com/SolderedElectronics/Inkplate-Arduino-library/tree/master/examples/Inkplate10/Diagnostics/Inkplate10_Wavefrom_EEPROM_Programming)
 
-updated for platformio build
+Updated for PlatformIO build
 
 ```shell
 pio run -e Wavefrom_EEPROM
