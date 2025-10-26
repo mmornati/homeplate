@@ -1,5 +1,6 @@
 #include <ArduinoOTA.h>
 #include "homeplate.h"
+#include "watchdog.h"
 
 #define OTA_TASK_PRIORITY 2
 
@@ -43,6 +44,10 @@ void startOTATask()
         .onStart([]()
                  {
                      otaRunning = true;
+                     
+                     // Disable watchdog during OTA to prevent timeout
+                     WatchdogManager::disable();
+                     
                      String type;
                      if (ArduinoOTA.getCommand() == U_FLASH)
                          type = "sketch";
@@ -59,6 +64,9 @@ void startOTATask()
                {
                    Serial.println("\n[OTA] End");
                    displayStatusMessage("OTA Finished");
+                   
+                   // Re-enable watchdog after OTA (device will restart anyway)
+                   WatchdogManager::enable();
                    //otaRunning = false; on finish should restart OTA, going to sleep can interfere.
                 })
         .onProgress([](unsigned int progress, unsigned int total)

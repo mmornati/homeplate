@@ -10,6 +10,7 @@
 #include <driver/rtc_io.h> //ESP32 library used for deep sleep and RTC wake up pins
 #include <rom/rtc.h>       // Include ESP32 library for RTC (needed for rtc_get_reset_reason() function)
 #include "homeplate.h"
+#include "watchdog.h"
 
 Inkplate display(INKPLATE_1BIT);
 SemaphoreHandle_t mutexI2C, mutexSPI, mutexDisplay;
@@ -24,6 +25,13 @@ void setup()
     Serial.begin(115200);
     Serial.printf("\n\n[SETUP] starting, version(%s) boot: %u\n", VERSION, bootCount);
     ++bootCount;
+    
+    // Initialize watchdog timer (only on fresh boot, not after deep sleep)
+    if (!sleepBoot)
+    {
+        WatchdogManager::init(WDT_TIMEOUT_SEC);
+    }
+    
     // reset GPIOs used for wake interrupt
     rtc_gpio_deinit(GPIO_NUM_34);
     rtc_gpio_deinit(WAKE_BUTTON);
@@ -118,6 +126,10 @@ void loop()
 {
     // main loop runs at priority 1
     printDebug("[MAIN] loop...");
+    
+    // Feed the watchdog timer
+    WatchdogManager::reset();
+    
     vTaskDelay(3 * SECOND / portTICK_PERIOD_MS);
     lowBatteryCheck();
 }

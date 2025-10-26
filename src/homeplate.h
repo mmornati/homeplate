@@ -103,6 +103,7 @@ void sendMQTTStatus();
 bool mqttRunning();
 void sendMQTTStatus();
 void startMQTTStatusTask();
+void mqttSendLowBatteryAlert(double voltage);
 
 // OTA
 void startOTATask();
@@ -169,6 +170,11 @@ void delaySleep(uint seconds);
 // debug settings
 #define DEBUG_STACK false
 #define DEBUG_PRINT false
+
+// Watchdog timer timeout (in seconds)
+#ifndef WDT_TIMEOUT_SEC
+#define WDT_TIMEOUT_SEC 120  // 2 minutes
+#endif
 
 // MQTT
 #define MQTT_TIMEOUT_MS (20 * SECOND)      // 20 second MQTT connection timeout

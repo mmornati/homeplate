@@ -1,4 +1,5 @@
 #include "homeplate.h"
+#include "watchdog.h"
 
 #define uS_TO_S_FACTOR 1000000ULL // Conversion factor for micro seconds to seconds
 #define SLEEP_TASK_PRIORITY 1
@@ -21,6 +22,10 @@ void setSleepDuration(uint32_t sec)
 void gotoSleepNow()
 {
     Serial.println("[SLEEP] prepping for sleep");
+    
+    // Disable watchdog before sleep
+    WatchdogManager::disable();
+    
     if (sleepRefresh > 0)
     {
         Serial.printf("[SLEEP] overriding sleep %d with %d\n", sleepDuration, sleepRefresh);

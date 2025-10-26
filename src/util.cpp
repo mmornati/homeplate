@@ -48,8 +48,11 @@ void printChipInfo()
 
     Serial.printf("silicon revision %u, ", chip_info.revision);
 
-    Serial.printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-                  (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+    uint32_t flash_size;
+    if (esp_flash_get_size(NULL, &flash_size) == ESP_OK) {
+        Serial.printf("%dMB %s flash\n", flash_size / (1024 * 1024),
+                      (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+    }
 
     Serial.printf("Minimum free heap size: %u bytes\n", esp_get_minimum_free_heap_size());
 
@@ -87,7 +90,15 @@ void lowBatteryCheck()
     {
         Serial.printf("[MAIN] voltage %.2f <= min %.2f, powering down\n", voltage, BATTERY_VOLTAGE_WARNING_SLEEP);
         displayStatusMessage("Low Battery");
-        // TODO mqtt send low battery sleep notification
+        
+        // Send low battery notification via MQTT before sleeping
+        if (mqttConnected())
+        {
+            Serial.println("[MAIN] Sending low battery MQTT notification");
+            mqttSendLowBatteryAlert(voltage);
+            vTaskDelay(2 * SECOND / portTICK_PERIOD_MS); // Wait for MQTT to send
+        }
+        
         setSleepDuration(0xFFFFFFFF);
         gotoSleepNow();
     }
