@@ -16,8 +16,13 @@
 // How long to sleep for quick activities like e.g. showing info and qr code (default 300 / 5 min)
 //#define TIME_TO_QUICK_SLEEP_SEC 300
 
+// How long before MQTT entries expire (default 2 * TIME_TO_SLEEP_MIN)
+// When configuring a custom sleep schedule you might want to change this to a value greater than your longest sleep duration
+//#define MQTT_EXPIRE_AFTER_SEC 3600
+
 // Configure a custom sleep schedule
 // NOTE: configure the actual sleep schedule in config.cpp, see config_example.cpp
+//#define CONFIG_CPP
 //#include "sleep_duration.h"
 //extern SleepScheduleSlot sleepSchedule[];
 //extern const size_t sleepScheduleSize;
@@ -37,6 +42,12 @@
 
 // URL of PNG image to display
 #define IMAGE_URL "HTTP URL of dashboard screenshot to display"
+
+// Settings for Trmnl (optional)
+// #define TRMNL_URL "https://trmnl.app/api/display"
+// #define TRMNL_ID ""
+// #define TRMNL_TOKEN ""
+// #define DEFAULT_ACTIVITY Trmnl
 
 // WiFi QR Code
 #define QR_WIFI_NAME "Guest WiFi Network Name"
@@ -59,6 +70,9 @@
 // Timezone
 // see timezone_config.h for options
 #define TIMEZONE_UTC
+
+// OTA
+#define ENABLE_OTA true
 
 // If your Inkplate doesn't have external (or second) MCP I/O expander, you should uncomment next line,
 // otherwise your code could hang out when you send code to your Inkplate.

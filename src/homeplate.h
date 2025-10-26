@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Inkplate.h>
+#include <map>
 #include "fonts/Roboto_12.h"
 #include "fonts/Roboto_16.h"
 #include "fonts/Roboto_32.h"
@@ -21,7 +22,7 @@ extern void vApplicationStackOverflowHook(xTaskHandle *pxTask,
 extern Inkplate display;
 extern SemaphoreHandle_t mutexI2C, mutexDisplay, mutexSPI;
 extern bool sleepBoot;
-extern uint bootCount, activityCount;
+extern uint bootCount, activityCount, timeToSleep;
 
 #define i2cStart() xSemaphoreTake(mutexI2C, portMAX_DELAY)
 #define i2cEnd() xSemaphoreGive(mutexI2C)
@@ -32,7 +33,9 @@ extern uint bootCount, activityCount;
 
 #define max(x, y) (((x) >= (y)) ? (x) : (y))
 
+#if defined(ARDUINO_INKPLATE10) || defined(ARDUINO_INKPLATE10V2)
 #define WAKE_BUTTON GPIO_NUM_36
+#endif
 
 #define VERSION __DATE__ ", " __TIME__
 
@@ -62,11 +65,15 @@ void displayWiFiQR();
 void displayInfoScreen();
 
 // Image
-bool remotePNG(const char *);
-bool drawPngFromBuffer(uint8_t *buff, int32_t len, int x, int y);
+bool drawImageFromURL(const char *url);
+bool drawImageFromBuffer(uint8_t *buff, size_t size, bool center = true);
+bool drawPngFromBuffer(uint8_t *buf, int32_t len, int x, int y, bool dither, bool invert);
 uint16_t centerTextX(const char *t, int16_t x1, int16_t x2, int16_t y, bool lock = true);
 void displayStatusMessage(const char *format, ...);
 void splashScreen();
+
+// Trmnl
+bool trmnlDisplay(const char *url);
 
 // Input
 void startMonitoringButtonsTask();
@@ -78,10 +85,13 @@ void setupWakePins();
 #ifndef TIME_TO_QUICK_SLEEP_SEC
 #define TIME_TO_QUICK_SLEEP_SEC 5 * 60 // 5 minutes. How long ESP32 will be in deep sleep (in seconds) for short activities
 #endif
+#ifndef MQTT_EXPIRE_AFTER_SEC
+#define MQTT_EXPIRE_AFTER_SEC (TIME_TO_SLEEP_SEC * 2)
+#endif
 
 void startSleep();
-void setSleepRefresh(uint32_t sec);
 void setSleepDuration(uint32_t sec);
+uint32_t getSleepDuration();
 void gotoSleepNow();
 
 // time
@@ -118,7 +128,21 @@ void printDebugStackSpace();
 void displayBatteryWarning();
 void printDebug(const char *s);
 
+// network
+uint8_t* httpGet(const char* url, std::map<String, String> *headers, int32_t* defaultLen, uint32_t timeout_sec = 5);
+uint8_t* httpGetRetry(uint32_t trys, const char* url, std::map<String, String> *headers, int32_t* defaultLen, uint32_t timeout_sec);
+
 // message
+static const GFXfont *fonts[] = {&Roboto_128, &Roboto_64, &Roboto_32, &Roboto_16, &Roboto_12};
+struct FontSizing
+{
+    const GFXfont *font;
+    uint16_t height;
+    uint16_t width;
+    uint8_t lineHeight;
+    uint8_t yAdvance;
+};
+FontSizing findFontSizeFit(const char *m, uint16_t max_width, uint16_t max_height);
 void setMessage(const char *m);
 void displayMessage(const char * = NULL);
 const char* getMessage();
@@ -128,13 +152,16 @@ enum Activity
 {
     NONE,
     HomeAssistant,
+    Trmnl,
     GuestWifi,
     Info,
     Message,
     IMG,
 };
 
+#ifndef DEFAULT_ACTIVITY
 #define DEFAULT_ACTIVITY HomeAssistant
+#endif
 void startActivity(Activity activity);
 void startActivitiesTask();
 bool stopActivity();
@@ -153,6 +180,10 @@ void delaySleep(uint seconds);
 
 // enable SD card (currently unused)
 #define USE_SDCARD false
+
+// set some display defaults
+#define USE_DITHERING false
+#define DISPLAY_MODE INKPLATE_3BIT
 
 // debounce time limit for static activities
 #define MIN_ACTIVITY_RESTART_SECS 5
@@ -192,6 +223,8 @@ void delaySleep(uint seconds);
 
 // Sleep
 #define SLEEP_TIMEOUT_SEC 15
+#define MAX_REFRESH_SEC 60*60*24 // 1 day
+
 
 // Device Models (from Inkplate-Arduino-library/src/include/defines.h)
 #ifdef ARDUINO_ESP32_DEV

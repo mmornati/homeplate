@@ -9,14 +9,21 @@ static unsigned long sleepTime;
 uint32_t sleepDuration = TIME_TO_SLEEP_SEC;
 uint32_t sleepRefresh = 0;
 
-void setSleepRefresh(uint32_t sec)
-{
-    sleepRefresh = sec;
-}
-
 void setSleepDuration(uint32_t sec)
 {
-    sleepDuration = sec;
+    if (sec > 0 && sec < MAX_REFRESH_SEC)
+      {
+        sleepDuration = sec;
+      }
+      else
+      {
+        Serial.printf("[SLEEP][ERROR] refresh value is out of range: %d\n", sec);
+      }
+}
+
+uint32_t getSleepDuration()
+{
+    return sleepDuration;
 }
 
 void gotoSleepNow()
@@ -38,27 +45,33 @@ void gotoSleepNow()
     mqttStopTask(); // prevent i2c lock in main thread
     wifiStopTask(); // prevent i2c lock in main thread
 
-    #if defined(ARDUINO_INKPLATE10)
+    #if TOUCHPAD_ENABLE && defined(ARDUINO_INKPLATE10)
         // set MCP interrupts
-        if (TOUCHPAD_ENABLE)
-            display.setIntOutput(1, false, false, HIGH, IO_INT_ADDR);
-        #endif
+        display.setIntOutput(1, false, false, HIGH, IO_INT_ADDR);
+    #endif
     i2cEnd();
 
-
     // Go to sleep for TIME_TO_SLEEP seconds
-    if (esp_sleep_enable_timer_wakeup(sleepDuration * uS_TO_S_FACTOR) != ESP_OK) {
-        Serial.printf("[SLEEP] ERROR esp_sleep_enable_timer_wakeup(%u) invalid value", sleepDuration * uS_TO_S_FACTOR);
+    // Prevent integer overflow by checking max sleep duration (ESP32 limit is ~71 minutes)
+    const uint32_t MAX_SLEEP_SECONDS = 4200; // ~70 minutes to stay well under ESP32 limit
+    uint32_t safeSleepDuration = (sleepDuration > MAX_SLEEP_SECONDS) ? MAX_SLEEP_SECONDS : sleepDuration;
+    
+    uint64_t sleepMicroseconds = (uint64_t)safeSleepDuration * uS_TO_S_FACTOR;
+    if (esp_sleep_enable_timer_wakeup(sleepMicroseconds) != ESP_OK) {
+        Serial.printf("[SLEEP] ERROR esp_sleep_enable_timer_wakeup(%llu) invalid value\n", sleepMicroseconds);
     }
 
-    // Enable wakeup from deep sleep on gpio 36 (WAKE BUTTON)
-    esp_sleep_enable_ext0_wakeup(WAKE_BUTTON, LOW);
-    #if defined(ARDUINO_INKPLATE10)
+    #ifdef WAKE_BUTTON
+        // Enable wakeup from deep sleep on WAKE BUTTON
+        esp_sleep_enable_ext0_wakeup(WAKE_BUTTON, LOW);
+    #endif
+
+    #if defined(ARDUINO_INKPLATE10) || defined(ARDUINO_INKPLATE10V2)
         // enable wake from MCP port expander
         if (TOUCHPAD_ENABLE)
             esp_sleep_enable_ext1_wakeup(TOUCHPAD_WAKE_MASK, ESP_EXT1_WAKEUP_ANY_HIGH);
     #endif
-    Serial.printf("[SLEEP] entering sleep for %u seconds (%u min)\n\n\n", sleepDuration, sleepDuration / 60);
+    Serial.printf("[SLEEP] entering sleep for %u seconds (%u min)\n\n\n", safeSleepDuration, safeSleepDuration / 60);
     vTaskDelay(50 / portTICK_PERIOD_MS);
     esp_deep_sleep_start(); // Put ESP32 into deep sleep. Program stops here.
 }

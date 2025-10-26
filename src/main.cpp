@@ -34,7 +34,9 @@ void setup()
     
     // reset GPIOs used for wake interrupt
     rtc_gpio_deinit(GPIO_NUM_34);
-    rtc_gpio_deinit(WAKE_BUTTON);
+    #ifdef WAKE_BUTTON
+        rtc_gpio_deinit(WAKE_BUTTON);
+    #endif
 
     // start inkplate display mutexes
     mutexI2C = xSemaphoreCreateMutex();
@@ -108,11 +110,15 @@ void setup()
     Serial.println("[SETUP] starting WiFi task");
     wifiConnectTask();
 
+    #if ENABLE_OTA
     Serial.println("[SETUP] starting OTA task");
     startOTATask();
+    #endif
 
+    # ifdef MQTT_HOST
     Serial.println("[SETUP] starting MQTT task");
     startMQTTTask();
+    #endif
 
     Serial.println("[SETUP] starting sleep task");
     sleepTask();

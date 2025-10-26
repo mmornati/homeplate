@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <HTTPClient.h>
 #include "homeplate.h"
 
 #define WIFI_TASK_PRIORITY 2
@@ -30,7 +31,9 @@ void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
 void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
 {
     wifiFailed = false;
-    Serial.printf("[WIFI] IP address: %s\n", WiFi.localIP().toString().c_str());
+    char ip_str[16];
+    WiFi.localIP().toString().toCharArray(ip_str, sizeof(ip_str));
+    Serial.printf("[WIFI] IP address: %s\n", ip_str);
     displayStatusMessage("WiFi connected");
 }
 
@@ -130,4 +133,134 @@ void wifiStopTask()
         WiFi.mode(WIFI_OFF);
         wifiTaskHandle = NULL;
     }
+}
+
+uint8_t* httpGetRetry(uint32_t trys, const char* url, std::map<String, String> *headers, int32_t* defaultLen, uint32_t timeout_sec) {
+    uint8_t* ret = 0;
+    for (uint32_t i = 0; i < trys; i++) {
+        Serial.printf("[NET] download attempt: %d\n", i);
+        ret = httpGet(url, headers, defaultLen,timeout_sec);
+        if (ret != nullptr) {
+            return ret;
+        }
+        // wait before trying again
+        vTaskDelay(1 * SECOND/portTICK_PERIOD_MS);
+    }
+    return ret;
+}
+
+
+uint8_t* httpGet(const char* url, std::map<String, String> *headers, int32_t* defaultLen, uint32_t timeout_sec) {
+    // Input validation
+    if (!url || strlen(url) == 0) {
+        Serial.println("[NET] Invalid URL: null or empty");
+        return nullptr;
+    }
+    
+    // Basic URL format validation
+    if (strncmp(url, "http://", 7) != 0 && strncmp(url, "https://", 8) != 0) {
+        Serial.printf("[NET] Invalid URL protocol: %s\n", url);
+        return nullptr;
+    }
+    
+    Serial.printf("[NET] downloading file at URL %s\n", url);
+
+    bool sleep = WiFi.getSleep();
+    WiFi.setSleep(false);
+
+    HTTPClient http;
+    http.getStream().setNoDelay(true);
+    // Set connection timeout (for establishing the connection)
+    //http.setConnectTimeout(2000); // 2 seconds
+    //http.getStream().setTimeout(timeout_sec); // TODO this seems to have no effect..
+    delaySleep(timeout_sec);
+
+    // const char* headersToCollect[] = {
+    //     "X-Next-Refresh",
+    // };
+    // const size_t numberOfHeaders = 1;
+    // http.collectHeaders(headersToCollect, numberOfHeaders);
+
+    // Connect with HTTP
+    http.begin(url);
+
+    if (headers) {
+        for (const auto& header : *headers) {
+            //Serial.printf("[NET][DEBUG] adding http header: %s: %s\n", header.first.c_str(), header.second.c_str());
+            http.addHeader(header.first, header.second);
+        }
+    }
+
+    int httpCode = http.GET();
+
+    int32_t size = http.getSize();
+    if (size == -1)
+        size = *defaultLen;
+    else
+        *defaultLen = size;
+
+    // Validate size to prevent buffer overflow attacks
+    const int32_t MAX_HTTP_BUFFER_SIZE = 1024 * 1024; // 1MB limit
+    if (size <= 0 || size > MAX_HTTP_BUFFER_SIZE) {
+        Serial.printf("[NET] Invalid or excessive buffer size: %d bytes\n", size);
+        http.end();
+        WiFi.setSleep(sleep);
+        return nullptr;
+    }
+
+    uint8_t* buffer = (uint8_t *)ps_malloc(size);
+    if (buffer == nullptr) {
+        Serial.printf("[NET] Failed to allocate %d bytes\n", size);
+        http.end();
+        WiFi.setSleep(sleep);
+        return nullptr;
+    }
+    uint8_t *buffPtr = buffer;
+
+    // if (http.hasHeader("X-Next-Refresh")) {
+    //     // Get the next refresh header value from the server.
+    //     // We use this to determine when to wake up next.
+    //     String headerVal = http.header("X-Next-Refresh");
+    //     *nextRefresh = headerVal.toInt();
+    //     // const char* headerValPtr = headerVal.c_str();
+    //     // strcpy(nextRefresh, headerValPtr);
+    //     logf(LOG_DEBUG, "received header X-Next-Refresh: %d", *nextRefresh);
+    // } else {
+    //     logf(LOG_WARNING, "header X-Next-Refresh not found in response");
+    // }
+
+    int32_t total = http.getSize();
+    int32_t len = total;
+
+    uint8_t buff[512] = {0};
+
+    WiFiClient* stream = http.getStreamPtr();
+    while (http.connected() && (len > 0 || len == -1)) {
+        size_t size = stream->available();
+
+        if (size) {
+            int c = stream->readBytes(
+                buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+            memcpy(buffPtr, buff, c);
+
+            if (len > 0) len -= c;
+            buffPtr += c;
+        } else if (len == -1) {
+            len = 0;
+        }
+    }
+
+    if (httpCode != HTTP_CODE_OK) {
+        Serial.printf("[NET] Non-200 response: %d from URL %s\n", httpCode, url);
+        if (size) {
+            Serial.printf("[NET] HTTP response buffer: \n\n%s\n\n", buffer);
+        }
+        free(buffer);
+        buffer = 0;
+    }
+
+    http.end();
+    WiFi.setSleep(sleep);
+
+    return buffer;
 }

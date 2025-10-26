@@ -59,7 +59,7 @@ void checkButtons(void *params)
             if (checkPad(PAD1))
             {
                 Serial.printf("[INPUT] touchpad 1\n");
-                startActivity(HomeAssistant);
+                startActivity(DEFAULT_ACTIVITY);
                 button = true;
             }
             else if (checkPad(PAD2))
@@ -74,12 +74,14 @@ void checkButtons(void *params)
                 startActivity(Info);
                 button = true;
             }
+            #ifdef WAKE_BUTTON
             else if (!digitalRead(WAKE_BUTTON))
             {
                 Serial.printf("[INPUT] wake button\n");
-                startActivity(HomeAssistant);
+                startActivity(DEFAULT_ACTIVITY);
                 button = true;
             }
+            #endif
         }
 
         if (button)
@@ -130,7 +132,7 @@ void checkBootPads()
             if (key & INT_PAD1)
             {
                 Serial.println("[INPUT] boot: PAD1");
-                startActivity(HomeAssistant);
+                startActivity(DEFAULT_ACTIVITY);
             }
             else if (key & INT_PAD2)
             {
@@ -167,12 +169,13 @@ void checkBootPads()
 
 void setupWakePins()
 {
-    #if defined(ARDUINO_INKPLATE10)
+    #if TOUCHPAD_ENABLE && defined(ARDUINO_INKPLATE10)
         // set which pads can allow wakeup
         display.setIntPin(PAD1, RISING, IO_INT_ADDR);
         display.setIntPin(PAD2, RISING, IO_INT_ADDR);
         display.setIntPin(PAD3, RISING, IO_INT_ADDR);
     #endif
-    pinMode(WAKE_BUTTON, INPUT_PULLUP);
-
+    #ifdef WAKE_BUTTON
+        pinMode(WAKE_BUTTON, INPUT_PULLUP);
+    #endif
 }
