@@ -65,7 +65,11 @@
 
 // Disables touchpads if they are overly sensitive and result in phantom touch events
 // Touchpads are not supported on the Inkplate10v2. This must be false if ARDUINO_INKPLATE10V2 is set
+#ifdef ARDUINO_INKPLATE10V2
+#define TOUCHPAD_ENABLE false
+#else
 #define TOUCHPAD_ENABLE true
+#endif
 
 // Timezone
 // see timezone_config.h for options
