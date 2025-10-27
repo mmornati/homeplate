@@ -1,6 +1,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include "homeplate.h"
+#include "watchdog.h"
 
 #define WIFI_TASK_PRIORITY 2
 
@@ -46,9 +47,11 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
 
 void keepWiFiAlive(void *parameter)
 {
+    WatchdogManager::subscribe();
     printDebug("[WIFI] loop start...");
     while (true)
     {
+        WatchdogManager::reset();
         printDebug("[WIFI] loop...");
         if (WiFi.status() == WL_CONNECTED)
         {

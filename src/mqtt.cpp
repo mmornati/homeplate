@@ -1,6 +1,7 @@
 #include <AsyncMqttClient.h>
 #include <ArduinoJson.h>
 #include "homeplate.h"
+#include "watchdog.h"
 
 #define MQTT_TASK_PRIORITY 3
 #define MQTT_SEND_TASK_PRIORITY 5
@@ -348,8 +349,10 @@ void sendHAConfig()
 
 void connectToMqtt(void *params)
 {
+  WatchdogManager::subscribe();
   while (true)
   {
+    WatchdogManager::reset();
     printDebug("[MQTT] MQTT loop...");
     // if already connected, do nothing
     if (mqttClient.connected())
@@ -398,7 +401,7 @@ void onMqttConnect(bool sessionPresent)
 
   // only send this on first boot, or after every 10 sleep boots
   // depending on MQTT server configuration , some persistent messages may expire after a while, so we'll resend them
-  if (!sleepBoot || bootCount % MQTT_RESEND_CONFIG_EVERY)
+  if (!sleepBoot || (bootCount % MQTT_RESEND_CONFIG_EVERY) == 0)
     sendHAConfig();
 }
 
