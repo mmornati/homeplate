@@ -1,0 +1,275 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  validate:
+    name: PR Validation
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Check PR title follows conventional commits
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+          requireScope: false
+          subjectPattern: ^.{1,100}$
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            doesn't match the configured pattern. Please ensure that the subject
+            doesn't start with an uppercase character and is not longer than 100 characters.
+        continue-on-error: true
+        
+      - name: Check for config.h in PR
+        id: check_config
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q "src/config.h"; then
+            echo "error=Config file detected in PR" >> $GITHUB_OUTPUT
+            echo "::error::config.h should not be committed. Please remove it from your PR."
+            exit 1
+          fi
+          
+      - name: Check for config.cpp in PR
+        id: check_config_cpp
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q "src/config.cpp"; then
+            echo "warning=Config cpp file detected in PR" >> $GITHUB_OUTPUT
+            echo "::warning::config.cpp is committed. Make sure this doesn't contain sensitive information."
+          fi
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade platformio
+          
+      - name: Check platformio.ini syntax
+        run: |
+          pio project config
+          
+      - name: Validate library dependencies
+        run: |
+          echo "Checking library dependencies..."
+          pio pkg list || true
+          
+      - name: Label PR based on files changed
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const labels = new Set();
+            
+            for (const file of files.data) {
+              const filename = file.filename;
+              
+              if (filename.startsWith('test/')) {
+                labels.add('tests');
+              }
+              if (filename.startsWith('.github/')) {
+                labels.add('ci/cd');
+              }
+              if (filename.endsWith('.md')) {
+                labels.add('documentation');
+              }
+              if (filename.startsWith('src/') && filename.endsWith('.cpp')) {
+                labels.add('code');
+              }
+              if (filename.startsWith('src/') && filename.endsWith('.h')) {
+                labels.add('code');
+              }
+              if (filename === 'platformio.ini') {
+                labels.add('dependencies');
+              }
+              if (filename.startsWith('lib/')) {
+                labels.add('library');
+              }
+            }
+            
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: Array.from(labels)
+              });
+            }
+
+  size-check:
+    name: Firmware Size Check
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-${{ hashFiles('platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
+            
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade platformio
+          
+      - name: Install libraries
+        run: pio pkg install
+        
+      - name: Use example config
+        run: cp src/config_example.h src/config.h
+        
+      - name: Build PR firmware
+        run: |
+          pio run -e inkplate10
+          pio run -e inkplate10 -t size > pr_size.txt
+          cat pr_size.txt
+          
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+          
+      - name: Build base firmware
+        run: |
+          cd base
+          cp src/config_example.h src/config.h
+          pio pkg install
+          pio run -e inkplate10
+          pio run -e inkplate10 -t size > ../base_size.txt
+          cd ..
+          cat base_size.txt
+          
+      - name: Compare sizes and comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            const prSize = fs.readFileSync('pr_size.txt', 'utf8');
+            const baseSize = fs.readFileSync('base_size.txt', 'utf8');
+            
+            // Extract firmware size from output
+            const extractSize = (text) => {
+              const match = text.match(/^\.flash\.text\s+(\d+)/m);
+              return match ? parseInt(match[1]) : 0;
+            };
+            
+            const prFlashSize = extractSize(prSize);
+            const baseFlashSize = extractSize(baseSize);
+            const diff = prFlashSize - baseFlashSize;
+            const percentChange = baseFlashSize > 0 ? ((diff / baseFlashSize) * 100).toFixed(2) : 0;
+            
+            let emoji = '📊';
+            if (diff > 0) emoji = '📈';
+            if (diff < 0) emoji = '📉';
+            
+            const comment = `${emoji} **Firmware Size Comparison**
+            
+            | Metric | Base | PR | Change |
+            |--------|------|----|----|
+            | Flash Size | ${baseFlashSize.toLocaleString()} bytes | ${prFlashSize.toLocaleString()} bytes | ${diff > 0 ? '+' : ''}${diff.toLocaleString()} bytes (${percentChange > 0 ? '+' : ''}${percentChange}%) |
+            
+            <details>
+            <summary>Base Size Details</summary>
+            
+            \`\`\`
+            ${baseSize}
+            \`\`\`
+            </details>
+            
+            <details>
+            <summary>PR Size Details</summary>
+            
+            \`\`\`
+            ${prSize}
+            \`\`\`
+            </details>
+            `;
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Firmware Size Comparison')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }
+
+  security-check:
+    name: Security Check
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Check for secrets in code
+        run: |
+          echo "Checking for potential secrets..."
+          
+          # Check for common secret patterns
+          if git diff origin/${{ github.base_ref }}...HEAD | grep -iE "(password|api_key|secret|token|private_key)\s*=\s*['\"](?!example|your_|changeme|dummy)[^'\"]+['\"]"; then
+            echo "::error::Potential secrets detected in the code. Please remove them and use config files instead."
+            exit 1
+          fi
+          
+          echo "No obvious secrets detected."
+
