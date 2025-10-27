@@ -91,20 +91,34 @@ MQTT data sent by homeplate will by default expire after `2 * TIME_TO_SLEEP_MIN`
 
 #### Build & run
 
+To compile the firmware:
+
 ```shell
 pio run
+```
+
+To compile and upload to your device (connected via USB):
+
+```shell
+pio run -t upload
+```
+
+To upload and monitor serial output:
+
+```shell
+pio run -t upload -t monitor
 ```
 
 If you have the Inkplate 10v2 (without the additional MCP expander and touchpads), use the `inkplate10v2` environment:
 
 ```shell
-pio run -e inkplate10v2
+pio run -e inkplate10v2 -t upload -t monitor
 ```
 
 The first flash/installation needs to be done over USB. Future updates can be done over USB or WiFi with:
 
 ```shell
-pio run -e ota
+pio run -e ota -t upload
 ```
 
 To monitor serial output without re-flashing:
